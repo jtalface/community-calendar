@@ -1,0 +1,58 @@
+-- Initial MVP schema. Generated from prisma/schema.prisma for deployment with `prisma migrate deploy`.
+CREATE TYPE "FamilyRole" AS ENUM ('owner', 'co_parent', 'caregiver', 'viewer');
+CREATE TYPE "Visibility" AS ENUM ('family', 'selected_parents', 'friend_group', 'class_group', 'school_group', 'public_listing');
+CREATE TYPE "ActivityCategory" AS ENUM ('camp', 'sports', 'school', 'music', 'stem', 'art', 'playdate', 'doctor', 'travel', 'other');
+CREATE TYPE "FriendStatus" AS ENUM ('pending', 'approved', 'blocked');
+CREATE TYPE "GroupKind" AS ENUM ('school', 'class', 'friends', 'sports_team', 'neighborhood', 'camp', 'family');
+CREATE TYPE "CalendarProvider" AS ENUM ('google', 'microsoft', 'apple', 'mock');
+CREATE TYPE "ConflictSource" AS ENUM ('external_calendar', 'sibling_activity', 'travel_time', 'parent_unavailable', 'school_calendar');
+CREATE TYPE "ConflictSeverity" AS ENUM ('low', 'medium', 'high');
+CREATE TYPE "CarpoolDirection" AS ENUM ('dropoff', 'pickup', 'both');
+CREATE TYPE "CarpoolRequestStatus" AS ENUM ('open', 'approved', 'declined', 'cancelled');
+CREATE TYPE "RideStatus" AS ENUM ('pending', 'approved', 'declined');
+CREATE TYPE "NotificationKind" AS ENUM ('conflict', 'carpool', 'friend', 'reminder', 'export_ready');
+
+CREATE TABLE "User" ("id" TEXT NOT NULL, "email" TEXT NOT NULL, "name" TEXT NOT NULL, "passwordHash" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "User_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Family" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Family_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "FamilyMember" ("id" TEXT NOT NULL, "familyId" TEXT NOT NULL, "userId" TEXT NOT NULL, "role" "FamilyRole" NOT NULL DEFAULT 'viewer', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "FamilyMember_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Child" ("id" TEXT NOT NULL, "familyId" TEXT NOT NULL, "name" TEXT NOT NULL, "age" INTEGER, "grade" TEXT, "school" TEXT, "notes" TEXT, "privacyDefault" "Visibility" NOT NULL DEFAULT 'family', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Child_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "FriendConnection" ("id" TEXT NOT NULL, "requesterId" TEXT NOT NULL, "recipientId" TEXT NOT NULL, "childId" TEXT, "status" "FriendStatus" NOT NULL DEFAULT 'pending', "shareAttendance" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "FriendConnection_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Group" ("id" TEXT NOT NULL, "familyId" TEXT NOT NULL, "name" TEXT NOT NULL, "kind" "GroupKind" NOT NULL, "visibility" "Visibility" NOT NULL DEFAULT 'family', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Group_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "GroupMember" ("id" TEXT NOT NULL, "groupId" TEXT NOT NULL, "userId" TEXT, "childId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "GroupMember_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Activity" ("id" TEXT NOT NULL, "familyId" TEXT NOT NULL, "title" TEXT NOT NULL, "location" TEXT NOT NULL, "category" "ActivityCategory" NOT NULL, "provider" TEXT, "registrationLink" TEXT, "notes" TEXT, "requiredItems" TEXT, "costCents" INTEGER, "visibility" "Visibility" NOT NULL DEFAULT 'family', "isRecurring" BOOLEAN NOT NULL DEFAULT false, "recurrenceRule" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Activity_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ActivitySession" ("id" TEXT NOT NULL, "activityId" TEXT NOT NULL, "startsAt" TIMESTAMP(3) NOT NULL, "endsAt" TIMESTAMP(3) NOT NULL, "dropoffStartsAt" TIMESTAMP(3), "pickupEndsAt" TIMESTAMP(3), CONSTRAINT "ActivitySession_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Attendance" ("id" TEXT NOT NULL, "childId" TEXT NOT NULL, "activityId" TEXT NOT NULL, "shared" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Attendance_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "CalendarConnection" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "provider" "CalendarProvider" NOT NULL, "label" TEXT NOT NULL, "mockEnabled" BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "CalendarConnection_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "ExternalCalendarEvent" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "provider" "CalendarProvider" NOT NULL, "title" TEXT NOT NULL, "startsAt" TIMESTAMP(3) NOT NULL, "endsAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "ExternalCalendarEvent_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Conflict" ("id" TEXT NOT NULL, "sessionId" TEXT NOT NULL, "source" "ConflictSource" NOT NULL, "severity" "ConflictSeverity" NOT NULL, "title" TEXT NOT NULL, "message" TEXT NOT NULL, "startsAt" TIMESTAMP(3) NOT NULL, "endsAt" TIMESTAMP(3) NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Conflict_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "CarpoolOffer" ("id" TEXT NOT NULL, "sessionId" TEXT NOT NULL, "driverId" TEXT NOT NULL, "direction" "CarpoolDirection" NOT NULL, "seats" INTEGER NOT NULL, "pickupLocation" TEXT, "dropoffLocation" TEXT, "notes" TEXT, "requiresApproval" BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "CarpoolOffer_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "CarpoolRequest" ("id" TEXT NOT NULL, "sessionId" TEXT NOT NULL, "requesterId" TEXT NOT NULL, "direction" "CarpoolDirection" NOT NULL, "seatsNeeded" INTEGER NOT NULL DEFAULT 1, "status" "CarpoolRequestStatus" NOT NULL DEFAULT 'open', "notes" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "CarpoolRequest_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "CarpoolRide" ("id" TEXT NOT NULL, "offerId" TEXT NOT NULL, "childId" TEXT NOT NULL, "status" "RideStatus" NOT NULL DEFAULT 'pending', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "CarpoolRide_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Notification" ("id" TEXT NOT NULL, "userId" TEXT NOT NULL, "kind" "NotificationKind" NOT NULL, "title" TEXT NOT NULL, "body" TEXT NOT NULL, "readAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Notification_pkey" PRIMARY KEY ("id"));
+
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX "FamilyMember_familyId_userId_key" ON "FamilyMember"("familyId", "userId");
+CREATE UNIQUE INDEX "Attendance_childId_activityId_key" ON "Attendance"("childId", "activityId");
+CREATE UNIQUE INDEX "CarpoolRide_offerId_childId_key" ON "CarpoolRide"("offerId", "childId");
+
+ALTER TABLE "FamilyMember" ADD CONSTRAINT "FamilyMember_familyId_fkey" FOREIGN KEY ("familyId") REFERENCES "Family"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "FamilyMember" ADD CONSTRAINT "FamilyMember_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Child" ADD CONSTRAINT "Child_familyId_fkey" FOREIGN KEY ("familyId") REFERENCES "Family"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "FriendConnection" ADD CONSTRAINT "FriendConnection_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "FriendConnection" ADD CONSTRAINT "FriendConnection_recipientId_fkey" FOREIGN KEY ("recipientId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Group" ADD CONSTRAINT "Group_familyId_fkey" FOREIGN KEY ("familyId") REFERENCES "Family"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "GroupMember" ADD CONSTRAINT "GroupMember_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Activity" ADD CONSTRAINT "Activity_familyId_fkey" FOREIGN KEY ("familyId") REFERENCES "Family"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ActivitySession" ADD CONSTRAINT "ActivitySession_activityId_fkey" FOREIGN KEY ("activityId") REFERENCES "Activity"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_childId_fkey" FOREIGN KEY ("childId") REFERENCES "Child"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Attendance" ADD CONSTRAINT "Attendance_activityId_fkey" FOREIGN KEY ("activityId") REFERENCES "Activity"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CalendarConnection" ADD CONSTRAINT "CalendarConnection_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ExternalCalendarEvent" ADD CONSTRAINT "ExternalCalendarEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Conflict" ADD CONSTRAINT "Conflict_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "ActivitySession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CarpoolOffer" ADD CONSTRAINT "CarpoolOffer_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "ActivitySession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CarpoolOffer" ADD CONSTRAINT "CarpoolOffer_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CarpoolRequest" ADD CONSTRAINT "CarpoolRequest_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "ActivitySession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CarpoolRequest" ADD CONSTRAINT "CarpoolRequest_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CarpoolRide" ADD CONSTRAINT "CarpoolRide_offerId_fkey" FOREIGN KEY ("offerId") REFERENCES "CarpoolOffer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CarpoolRide" ADD CONSTRAINT "CarpoolRide_childId_fkey" FOREIGN KEY ("childId") REFERENCES "Child"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

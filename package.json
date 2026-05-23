@@ -1,0 +1,20 @@
+{
+  "name": "kids-activity-community-calendar",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @kidcal/api & npm run dev -w @kidcal/web",
+    "build": "npm run build -w @kidcal/shared && npm run build -w @kidcal/api && npm run build -w @kidcal/web",
+    "lint": "npm run lint -w @kidcal/api && npm run lint -w @kidcal/web",
+    "test": "npm run test -w @kidcal/api",
+    "prisma:generate": "npm run prisma:generate -w @kidcal/api",
+    "db:seed": "npm run db:seed -w @kidcal/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

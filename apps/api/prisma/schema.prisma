@@ -1,0 +1,318 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FamilyRole {
+  owner
+  co_parent
+  caregiver
+  viewer
+}
+
+enum Visibility {
+  family
+  selected_parents
+  friend_group
+  class_group
+  school_group
+  public_listing
+}
+
+enum ActivityCategory {
+  camp
+  sports
+  school
+  music
+  stem
+  art
+  playdate
+  doctor
+  travel
+  other
+}
+
+enum FriendStatus {
+  pending
+  approved
+  blocked
+}
+
+enum GroupKind {
+  school
+  class
+  friends
+  sports_team
+  neighborhood
+  camp
+  family
+}
+
+enum CalendarProvider {
+  google
+  microsoft
+  apple
+  mock
+}
+
+enum ConflictSource {
+  external_calendar
+  sibling_activity
+  travel_time
+  parent_unavailable
+  school_calendar
+}
+
+enum ConflictSeverity {
+  low
+  medium
+  high
+}
+
+enum CarpoolDirection {
+  dropoff
+  pickup
+  both
+}
+
+enum CarpoolRequestStatus {
+  open
+  approved
+  declined
+  cancelled
+}
+
+enum RideStatus {
+  pending
+  approved
+  declined
+}
+
+enum NotificationKind {
+  conflict
+  carpool
+  friend
+  reminder
+  export_ready
+}
+
+model User {
+  id              String               @id @default(cuid())
+  email           String               @unique
+  name            String
+  passwordHash    String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  familyMembers   FamilyMember[]
+  sentConnections FriendConnection[]   @relation("Requester")
+  gotConnections  FriendConnection[]   @relation("Recipient")
+  calendarConnections CalendarConnection[]
+  externalEvents  ExternalCalendarEvent[]
+  carpoolOffers   CarpoolOffer[]
+  carpoolRequests CarpoolRequest[]
+  notifications   Notification[]
+}
+
+model Family {
+  id        String         @id @default(cuid())
+  name      String
+  createdAt DateTime       @default(now())
+  members   FamilyMember[]
+  children  Child[]
+  groups    Group[]
+  activities Activity[]
+}
+
+model FamilyMember {
+  id        String     @id @default(cuid())
+  familyId  String
+  userId    String
+  role      FamilyRole @default(viewer)
+  createdAt DateTime   @default(now())
+  family    Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+}
+
+model Child {
+  id             String       @id @default(cuid())
+  familyId       String
+  name           String
+  age            Int?
+  grade          String?
+  school         String?
+  notes          String?
+  privacyDefault Visibility   @default(family)
+  createdAt      DateTime     @default(now())
+  family         Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  attendances    Attendance[]
+  carpoolRides   CarpoolRide[]
+}
+
+model FriendConnection {
+  id            String       @id @default(cuid())
+  requesterId   String
+  recipientId   String
+  childId        String?
+  status        FriendStatus @default(pending)
+  shareAttendance Boolean    @default(false)
+  createdAt     DateTime     @default(now())
+  requester     User         @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipient     User         @relation("Recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+}
+
+model Group {
+  id         String        @id @default(cuid())
+  familyId   String
+  name       String
+  kind       GroupKind
+  visibility Visibility    @default(family)
+  createdAt  DateTime      @default(now())
+  family     Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  members    GroupMember[]
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String?
+  childId   String?
+  createdAt DateTime @default(now())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+model Activity {
+  id               String            @id @default(cuid())
+  familyId         String
+  title            String
+  location         String
+  category         ActivityCategory
+  provider         String?
+  registrationLink String?
+  notes            String?
+  requiredItems    String?
+  costCents        Int?
+  visibility       Visibility        @default(family)
+  isRecurring      Boolean           @default(false)
+  recurrenceRule   String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  family           Family            @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  sessions         ActivitySession[]
+  attendances      Attendance[]
+}
+
+model ActivitySession {
+  id              String           @id @default(cuid())
+  activityId      String
+  startsAt        DateTime
+  endsAt          DateTime
+  dropoffStartsAt DateTime?
+  pickupEndsAt    DateTime?
+  activity        Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  conflicts       Conflict[]
+  carpoolOffers   CarpoolOffer[]
+  carpoolRequests CarpoolRequest[]
+}
+
+model Attendance {
+  id          String   @id @default(cuid())
+  childId     String
+  activityId  String
+  shared      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  child       Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, activityId])
+}
+
+model CalendarConnection {
+  id          String           @id @default(cuid())
+  userId      String
+  provider    CalendarProvider
+  label       String
+  mockEnabled Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ExternalCalendarEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  CalendarProvider
+  title     String
+  startsAt  DateTime
+  endsAt    DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Conflict {
+  id        String           @id @default(cuid())
+  sessionId String
+  source    ConflictSource
+  severity  ConflictSeverity
+  title     String
+  message   String
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime         @default(now())
+  session   ActivitySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model CarpoolOffer {
+  id          String           @id @default(cuid())
+  sessionId   String
+  driverId    String
+  direction   CarpoolDirection
+  seats       Int
+  pickupLocation String?
+  dropoffLocation String?
+  notes       String?
+  requiresApproval Boolean     @default(true)
+  createdAt   DateTime         @default(now())
+  session     ActivitySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  driver      User             @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  rides       CarpoolRide[]
+}
+
+model CarpoolRequest {
+  id          String               @id @default(cuid())
+  sessionId   String
+  requesterId String
+  direction   CarpoolDirection
+  seatsNeeded Int                  @default(1)
+  status      CarpoolRequestStatus @default(open)
+  notes       String?
+  createdAt   DateTime             @default(now())
+  session     ActivitySession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  requester   User                 @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+}
+
+model CarpoolRide {
+  id        String      @id @default(cuid())
+  offerId   String
+  childId   String
+  status    RideStatus  @default(pending)
+  createdAt DateTime    @default(now())
+  offer     CarpoolOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  child     Child        @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, childId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  kind      NotificationKind
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
