@@ -17,7 +17,7 @@ A family-centered activity calendar for parents to manage kids' activities, trus
 apps/web        React app
 apps/api        Express API, Prisma schema, seed, tests
 packages/shared Shared TypeScript contracts
-AUTOMATION.md   Notes on automation tooling used in this repo
+AUTOMATION.md   AI automation credit line
 ```
 
 ## Setup
