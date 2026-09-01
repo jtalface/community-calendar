@@ -1,3 +1,5 @@
+José Alface
+
 # Kids Activity Community Calendar MVP
 
 A family-centered activity calendar for parents to manage kids' activities, trusted friend attendance, conflict warnings, carpools, and calendar exports.
